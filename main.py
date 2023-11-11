@@ -15,6 +15,8 @@ from config.database import Base, engine, Session
 from models.movie import Movie as MovieModel
 
 from schemas.movie import Movie
+from schemas.user import User
+
 Base.metadata.create_all(bind=engine)
 
 class JWTBearer(HTTPBearer):
@@ -26,12 +28,6 @@ class JWTBearer(HTTPBearer):
         if data['email'] != "admin@email.com":
             raise HTTPException(status_code=403, detail='credentials invalids')
     
-# SCHEMA
-class User(BaseModel):
-    email : str
-    password : str
-
-
     
 app = FastAPI()
 

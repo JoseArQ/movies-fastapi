@@ -104,12 +104,40 @@ def create_movie(movie : Dict[Any, Any]) -> dict:
     )
 
 @app.put('/movies/{id}', tags=['movies'], status_code=200, response_model=dict)
-def update_movie(id : int, movie : Movie):
-    movies = None
-    for movie in movies:
-        if movie["id"] == id:
-            movie['title'] = movie.title
-            movie['category'] = movie.category
-            return {'data':movies}
+def update_movie(id : int, movie : Dict[Any, Any]):
+    db = Session()
+    movie_record = db.query(MovieModel).filter(MovieModel.id == id).first()
 
-    return {'data': None}    
+    if not movie_record:
+        return JSONResponse(status_code=400, content={
+            "message": "movie not found, invalid id"
+        })
+    
+    print('movie: ', movie_record)
+    movie_record.title = movie["title"]
+    movie_record.overview = movie["overview"]
+    movie_record.year = movie["year"]
+    movie_record.rating = movie["rating"]
+    movie_record.category = movie["category"]
+    db.commit()
+    return JSONResponse(status_code=200, content={
+        "message": "movie update successfully"
+    })    
+
+@app.delete('/movies/{id}', tags=['movies'], status_code=200)
+def remove_movie(id : int):
+    db = Session()
+    movie = db.query(MovieModel).filter(MovieModel.id == id).first()
+    if not movie:
+        return JSONResponse(status_code=400, content={
+            "message": "movie not found, invalid id"
+        })
+    
+    db.delete(movie)
+    db.commit()
+    return JSONResponse(
+        status_code=200,
+        content={
+            "message": "movie deleted succesfully!"
+        }
+    )

@@ -1,11 +1,12 @@
 """run application: uvicorn main:app --reload --port 5000"""
 
-from typing import Any, Coroutine, Optional
+from typing import Any, Dict, Coroutine, Optional
 
-from fastapi import FastAPI, Body, Request, HTTPException, Depends
+from fastapi import FastAPI, Body, Request, HTTPException, Depends, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.security import HTTPBearer
 from fastapi.security.http import HTTPAuthorizationCredentials
+from fastapi.encoders import jsonable_encoder
 
 from pydantic import BaseModel, Field
 from starlette.requests import Request
@@ -34,20 +35,9 @@ app = FastAPI()
 app.title = "My first FastApi application"
 app.version = "0.0.1"
 
-movies = [
-    {
-        "id": 1,
-        "title": 'my movie',
-        "category": "accion"
-    },
-    {
-        "id": 2,
-        "title": 'my movie 2',
-        "category": "terror"
-    },
-]
 
 def get_movie_by_id(id : int):
+    movies = None
     for movie in movies:
         if movie["id"] == id:
             return movie
@@ -66,39 +56,56 @@ async def root():
         content="<h1>HELLO WORLD!</h1>"
     )
 
-@app.get("/movies", tags=["movies"], dependencies=[Depends(JWTBearer())])
+@app.get("/movies", tags=["movies"])
 def get_movies():
-    return JSONResponse(content=movies, status_code=200)
+    db = Session()
+    movies = db.query(MovieModel).all()
+    return JSONResponse(content=jsonable_encoder(movies), status_code=200)
 
 @app.get("/movies/{id}", tags=["movies"])
 def get_movie(id : int):
-    movie = get_movie_by_id(id=id)
-    if movie:
-        return {'data': movie}
-    return {'data': None }
+   db = Session()
+   movie_model = db.query(MovieModel).filter(MovieModel.id == id).first()
+
+   if not movie_model:
+        return JSONResponse(status_code=404, content={
+            "message": "record not found"
+        })
+   
+   return JSONResponse(status_code=200, content=jsonable_encoder(movie_model))
 
 @app.get("/movies/", tags=["movies"]) # añadir / para que tome el queryparam
-def get_movie_by_category(category : str): # los argumento son los query params
-
-    for movie in movies:
-        if movie['category'].lower() == category.lower():
-            return {'data': movie}
-    return {'data': None}
+def get_movie_by_category(category : str = Query(min_length=3, max_length=20)): # los argumento son los query params
+    db = Session()
+    movies = db.query(MovieModel).filter(MovieModel.category == category).all()
+    
+    if not movies:
+        return JSONResponse(status_code=404, content={
+            "message": "record not found"
+        })
+    
+    return JSONResponse(status_code=200, content=jsonable_encoder(movies))
 
 @app.post("/movies", tags=["movies"], response_model=Movie, status_code=201)
-def create_movie(movie : Movie) -> dict:
+def create_movie(movie : Dict[Any, Any]) -> dict:
+    # print('create a new movie')
+    # print(f'input movie: {movie}')
+
     db = Session()
-    new_movie = MovieModel(**movie.dict())
+    new_movie = MovieModel(**movie)
     db.add(new_movie)
     db.commit()
     return JSONResponse(
-        content={"message": "movie register succesfully"},
+        content={
+            "movie": movie,
+            "message": "movie register succesfully"
+            },
         status_code=201
     )
 
-@app.put('/movies/{id}', tags=['movies'])
-def update_movie(movie : Movie):
-
+@app.put('/movies/{id}', tags=['movies'], status_code=200, response_model=dict)
+def update_movie(id : int, movie : Movie):
+    movies = None
     for movie in movies:
         if movie["id"] == id:
             movie['title'] = movie.title

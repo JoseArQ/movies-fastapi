@@ -4,7 +4,7 @@ from typing import Any, Dict, Coroutine, Optional
 
 from fastapi import FastAPI, Body, Request, HTTPException, Depends, Query
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.security import HTTPBearer
+
 from fastapi.security.http import HTTPAuthorizationCredentials
 from fastapi.encoders import jsonable_encoder
 
@@ -15,26 +15,20 @@ from jwt_manager import create_token, validate_token
 from config.database import Base, engine, Session
 from models.movie import Movie as MovieModel
 
+from middleware.error_handler import ErrorHandlrer
+from middleware.jwt_bearer import JWTBearer
+
 from schemas.movie import Movie
 from schemas.user import User
-
-Base.metadata.create_all(bind=engine)
-
-class JWTBearer(HTTPBearer):
-    
-    async def __call__(self, request: Request):
-        auth = await super().__call__(request)
-        data = validate_token(auth.credentials)
-
-        if data['email'] != "admin@email.com":
-            raise HTTPException(status_code=403, detail='credentials invalids')
-    
     
 app = FastAPI()
 
 app.title = "My first FastApi application"
 app.version = "0.0.1"
 
+app.add_middleware(ErrorHandlrer)
+
+Base.metadata.create_all(bind=engine)
 
 def get_movie_by_id(id : int):
     movies = None

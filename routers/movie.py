@@ -46,13 +46,9 @@ def get_movie_by_category(category : str = Query(min_length=3, max_length=20)): 
 
 @movie_router.post("/movies", tags=["movies"], response_model=Movie, status_code=201)
 def create_movie(movie : Dict[Any, Any]) -> dict:
-    # print('create a new movie')
-    # print(f'input movie: {movie}')
-
+    
     db = Session()
-    new_movie = MovieModel(**movie)
-    db.add(new_movie)
-    db.commit()
+    MovieService(db=db).create(movie_data=movie)
     return JSONResponse(
         content={
             "movie": movie,
@@ -64,20 +60,14 @@ def create_movie(movie : Dict[Any, Any]) -> dict:
 @movie_router.put('/movies/{id}', tags=['movies'], status_code=200, response_model=dict)
 def update_movie(id : int, movie : Dict[Any, Any]):
     db = Session()
-    movie_record = db.query(MovieModel).filter(MovieModel.id == id).first()
+    movie_record = MovieService(db=db).get_movie(id=id)
 
     if not movie_record:
         return JSONResponse(status_code=400, content={
             "message": "movie not found, invalid id"
         })
     
-    print('movie: ', movie_record)
-    movie_record.title = movie["title"]
-    movie_record.overview = movie["overview"]
-    movie_record.year = movie["year"]
-    movie_record.rating = movie["rating"]
-    movie_record.category = movie["category"]
-    db.commit()
+    MovieService(db=db).update(id=id, movie_data=movie)
     return JSONResponse(status_code=200, content={
         "message": "movie update successfully"
     })    
@@ -85,14 +75,13 @@ def update_movie(id : int, movie : Dict[Any, Any]):
 @movie_router.delete('/movies/{id}', tags=['movies'], status_code=200)
 def remove_movie(id : int):
     db = Session()
-    movie = db.query(MovieModel).filter(MovieModel.id == id).first()
+    movie = MovieService(db=db).get_movie(id=id)
     if not movie:
         return JSONResponse(status_code=400, content={
             "message": "movie not found, invalid id"
         })
     
-    db.delete(movie)
-    db.commit()
+    MovieService(db=db).delete(id=id)
     return JSONResponse(
         status_code=200,
         content={

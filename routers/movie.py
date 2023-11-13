@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from fastapi import Query
 from fastapi import APIRouter
@@ -10,19 +10,20 @@ from config.database import Session
 from models.movie import Movie as MovieModel
 
 from schemas.movie import Movie
+from services.movie import MovieService
 
 movie_router = APIRouter()
 
 @movie_router.get("/movies", tags=["movies"])
-def get_movies():
+def get_movies() -> List[Movie]:
     db = Session()
-    movies = db.query(MovieModel).all()
+    movies = MovieService(db=db).get_movies()
     return JSONResponse(content=jsonable_encoder(movies), status_code=200)
 
 @movie_router.get("/movies/{id}", tags=["movies"])
 def get_movie(id : int):
    db = Session()
-   movie_model = db.query(MovieModel).filter(MovieModel.id == id).first()
+   movie_model = MovieService(db=db).get_movie(id=id)
 
    if not movie_model:
         return JSONResponse(status_code=404, content={
@@ -34,7 +35,7 @@ def get_movie(id : int):
 @movie_router.get("/movies/", tags=["movies"]) # añadir / para que tome el queryparam
 def get_movie_by_category(category : str = Query(min_length=3, max_length=20)): # los argumento son los query params
     db = Session()
-    movies = db.query(MovieModel).filter(MovieModel.category == category).all()
+    movies = MovieService(db=db).get_by_category(category=category)
     
     if not movies:
         return JSONResponse(status_code=404, content={
